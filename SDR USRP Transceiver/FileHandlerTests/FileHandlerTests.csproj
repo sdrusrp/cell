@@ -3,11 +3,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>8925b54e-56ba-4e82-a6e7-a5dc139f29cb</ProjectGuid>
+    <ProjectGuid>e265f828-2c42-40e9-8e4f-5d186c4a8324</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FileHandlerTest</RootNamespace>
-    <AssemblyName>FileHandlerTest</AssemblyName>
+    <RootNamespace>FileHandlerTests</RootNamespace>
+    <AssemblyName>FileHandlerTests</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
