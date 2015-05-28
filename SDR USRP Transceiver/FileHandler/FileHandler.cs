@@ -70,7 +70,7 @@ namespace FileHandler
         private const char cEqualSign = '=';
         private const string cHeaderKeyPattern = @"^\w+(?==)"; // word before equal sign
         private const string cHeaderValuePattern = @"(?<==).*$"; // word after equal sign
-        private const string cSamplesPattern = @"-?\d*\.?[\w-]+\s-?\d*\.?[\w-]+(?=;)"; // real and imag part space-separated with semicolon end
+        private const string cSamplesPattern = @"-?\d*\.?[\w-]+\s-?\d*\.?[\w-]+(?=;)"; // real and imag part space-separated with semicolon at the end
         
         #endregion
 
