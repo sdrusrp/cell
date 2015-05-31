@@ -7,8 +7,8 @@
     <ProjectGuid>{32B258EA-B682-417C-95BB-9255D092C17A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FileHandler</RootNamespace>
-    <AssemblyName>FileHandler</AssemblyName>
+    <RootNamespace>UsrpIO</RootNamespace>
+    <AssemblyName>UsrpIO</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -40,11 +40,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Complex.cs" />
+    <Compile Include="DataType\Complex.cs" />
+    <Compile Include="DataType\SamplesFile.cs" />
     <Compile Include="FileHandler.cs" />
     <Compile Include="FileHandlerException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SamplesFile.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

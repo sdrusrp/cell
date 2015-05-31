@@ -1,19 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Net.Sockets;
-using System.Reflection;
-using System.Runtime.Remoting.Channels;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using UsrpIO.DataType;
 
-namespace FileHandler
+namespace UsrpIO
 {
     public enum StreamMode
     {
@@ -46,6 +41,31 @@ namespace FileHandler
 
         public List<SamplesFile> Files { get; set; }
 
+        public ReadMode ReadMode
+        {
+            get { return mReadMode; }
+        }
+
+        public StreamMode Mode
+        {
+            get { return mMode; }
+        }
+
+        public string FilePattern
+        {
+            get { return mFilePattern; }
+        }
+
+        public bool WriterIsBusy
+        {
+            get { return mWriterIsBusy; }
+        }
+
+        public bool ReaderIsBusy
+        {
+            get { return mReaderIsBusy; }
+        }
+
         #endregion
 
         #region private fields
@@ -55,23 +75,22 @@ namespace FileHandler
         private ReadMode mReadMode;
         private StreamReader mReader;
         private StreamWriter mWriter;
-        private bool mWriterIsBusy; // TODO
-        private bool mReaderIsBusy; // TODO
+        private bool mWriterIsBusy;
+        private bool mReaderIsBusy;
         private string mFilePattern;
         private readonly Task mScanThread;
-        private CancellationTokenSource mTokenSource;
+        private readonly CancellationTokenSource mTokenSource;
         private CancellationToken mToken;
         private DateTime mLastModification;
 
-        private const string cTxt = "*.txt";
-        private const string cDat = "*.dat";
+        private const string cFileExtension = ".txt";
         private const char cHeaderIndicator = '$';
         private const char cSeparator = ';';
         private const char cEqualSign = '=';
         private const string cHeaderKeyPattern = @"^\w+(?==)"; // word before equal sign
         private const string cHeaderValuePattern = @"(?<==).*$"; // word after equal sign
         private const string cSamplesPattern = @"-?\d*\.?[\w-]+\s-?\d*\.?[\w-]+(?=;)"; // real and imag part space-separated with semicolon at the end
-        
+
         #endregion
 
         #region methods
@@ -80,27 +99,14 @@ namespace FileHandler
         /// This is constructor of the FileHandler class object.
         /// It sets folder from where data will be read or write to
         /// and also selects mode of the object which defines if
-        /// it is working as reader or writer.
+        /// it is working as reader or as writer.
         /// </summary>
         /// <param name="pDirPath">Path where data will be write or read from.</param>
         /// <param name="pMode">Mode of the created object.</param>
         public FileHandler(string pDirPath, StreamMode pMode)
         {
-            if (pDirPath != String.Empty)
-            {
-                if (pDirPath.EndsWith(@"\"))
-                {
-                    mDirPath = pDirPath;
-                }
-                else
-                {
-                    mDirPath = pDirPath + @"\";
-                }
-            }
-            else
-            {
-                mDirPath = @"Temp\";
-            }
+            // check if dir path is properly formated
+            mDirPath = PathCheck(pDirPath);
 
             // check if folder exists, create if not
             DirCheck(mDirPath);
@@ -126,7 +132,33 @@ namespace FileHandler
                 mScanThread.Dispose();
             }
         }
-        
+
+        /// <summary>
+        /// This method check if given dir path is properly formated.
+        /// If path contains error or is empty then dir path is edited by the method. 
+        /// </summary>
+        /// <param name="pDirPath">Path to check if it is properly formated</param>
+        /// <returns>Properly formated string</returns>
+        /// <remarks>If Dir path is empty then data will be stored in app local Temp/ directory</remarks>
+        private string PathCheck(string pDirPath)
+        {
+            if (pDirPath != String.Empty)
+            {
+                if (pDirPath.EndsWith(@"\"))
+                {
+                    return pDirPath;
+                }
+                else
+                {
+                    return pDirPath + @"\";
+                }
+            }
+            else
+            {
+                return @"Temp\";
+            }
+        }
+
         /// <summary>
         /// This method checks if directory exists at given path.
         /// If not it creates directory at the selected place. 
@@ -169,12 +201,17 @@ namespace FileHandler
         /// </remarks>
         public void ChangeMode(StreamMode pFileHandlerMode, ReadMode pReadMode)
         {
+            if (mWriterIsBusy)
+                throw new FileHandlerException("Writer is busy. Wait until IO operation ends.");
+
+            if (mMode == StreamMode.Read)
+            {
+                ChangeReadMode(pReadMode);
+            }
+            
             mMode = pFileHandlerMode;
 
             Debug.WriteLine("FileHandler: Changing mode to {0}", mMode);
-
-            if (mMode == StreamMode.Read)
-                ChangeReadMode(pReadMode);
         }
 
         /// <summary>
@@ -183,9 +220,18 @@ namespace FileHandler
         /// <param name="pNewMode">New read mode.</param>
         public void ChangeReadMode(ReadMode pNewMode)
         {
-            if ((mReadMode == ReadMode.Scan) && (pNewMode == ReadMode.OnDemand))
+            if (mWriterIsBusy)
+                throw new FileHandlerException("Writer is busy. Wait until pending IO operation ends.");
+            
+            Debug.WriteLine("FileHandler: Changing read mode to {0}", pNewMode);
+
+            if ((mReadMode == ReadMode.Scan) && mReaderIsBusy && (pNewMode == ReadMode.OnDemand))
             {
                 StopScan();
+            }
+            else if(mReaderIsBusy)
+            {
+                throw new FileHandlerException("Reader is busy. Wait until pending IO operation ends.");
             }
 
             mReadMode = pNewMode;
@@ -202,15 +248,49 @@ namespace FileHandler
         /// </param>
         public void ChangeReadMode(ReadMode pNewMode, Scanning pScanStart, string pFilePattern)
         {
+            if (mWriterIsBusy)
+                throw new FileHandlerException("Writer is busy. Wait until pending IO operation ends.");
+            
             Debug.WriteLine("FileHandler: Changing read mode to {0}", pNewMode);
 
             if (pNewMode == ReadMode.OnDemand || pScanStart == Scanning.Stop)
                 ChangeReadMode(pNewMode);
             else
             {
+                if(mReaderIsBusy)
+                    throw new FileHandlerException("Reader is busy. Wait until pending IO operation ends.");
+           
                 mReadMode = pNewMode;
 
                 StartScan(pFilePattern);
+            }
+        }
+
+        /// <summary>
+        /// This method loads file on user demand from the temporary data directory which contains
+        /// files with gathered samples. Object containing read data is added to public
+        /// samples list.
+        /// </summary>
+        /// <param name="pFileName">Name of the file to read.</param>
+        public void ReadFile(string pFileName)
+        {
+            if (mReaderIsBusy == false && Mode == StreamMode.Read
+                && ReadMode == ReadMode.OnDemand)
+            {
+                mReaderIsBusy = true;
+                ReadFileAsync(pFileName).Wait();
+                mReaderIsBusy = false;
+            }
+            else
+            {
+                if(mReaderIsBusy)
+                    throw new FileHandlerException("Reader is busy. Wait until pending operation ends");
+
+                if(Mode != StreamMode.Read)
+                    throw new FileHandlerException("Change FileHandler mode to read file");
+
+                if(ReadMode != ReadMode.OnDemand)
+                    throw new FileHandlerException("FileHandler must be in \"on demand\" read mode to perform this action");
             }
         }
 
@@ -220,8 +300,7 @@ namespace FileHandler
         /// samples list.
         /// </summary>
         /// <param name="pFileName">Name of the file to read.</param>
-        /// <returns>SamplesFile object containing samples data read.</returns>
-        public async Task ReadFileAsync(string pFileName)
+        private async Task ReadFileAsync(string pFileName)
         {
             SamplesFile lFile = new SamplesFile();
             bool lHeaderPart = false;
@@ -259,7 +338,7 @@ namespace FileHandler
                         continue;
                     }
 
-                    if (lHeaderPart) // fill header info
+                    if (lHeaderPart) // fill header     info
                     {
                         Match lKey = Regex.Match(lNextLine, cHeaderKeyPattern);
                         Match lValue = Regex.Match(lNextLine, cHeaderValuePattern);
@@ -295,10 +374,10 @@ namespace FileHandler
                     #endregion
                 }
 
-               #region performance diagnostics
+                #region performance diagnostics
 
                 lFileRead.Stop();
-                Debug.WriteLine("FileHandler: File read time: {0}", lFileRead.Elapsed );
+                Debug.WriteLine("FileHandler: File read time: {0}", lFileRead.Elapsed);
 
                 #endregion
 
@@ -312,12 +391,45 @@ namespace FileHandler
         }
 
         /// <summary>
+        /// This method writes on demand selected file to hard disk. 
+        /// </summary>
+        /// <param name="pFile">Object of the SamplesFile class which contains header, samples and file name.</param>
+        public void WriteFile(SamplesFile pFile)
+        {
+            WriteFile(pFile.Header, pFile.Samples, pFile.FileName);
+        }
+
+        /// <summary>
+        /// This method writes on demand selected file to hard disk. 
+        /// </summary>
+        /// <param name="pHeader">File header.</param>
+        /// <param name="pSamples">Signal samples which will be stored in file.</param>
+        /// <param name="pFileName">File name.</param>
+        public void WriteFile(Dictionary<string, string> pHeader, IEnumerable<Complex> pSamples, string pFileName)
+        {
+            if (mWriterIsBusy == false && Mode == StreamMode.Write)
+            {
+                mWriterIsBusy = true;
+                WriteFileAsync(pHeader, pSamples, pFileName).Wait();
+                mWriterIsBusy = false;
+            }
+            else
+            {
+                if (mWriterIsBusy)
+                    throw new FileHandlerException("Writer is busy. Wait until pending operation ends");
+                
+                if(Mode != StreamMode.Write)
+                    throw new FileHandlerException("Change FileHandler mode to write file");
+            }
+        }
+
+        /// <summary>
         /// This method writes asynchronously selected file to hard disk. 
         /// </summary>
         /// <param name="pFile">Object of the SamplesFile class which contains header, samples and file name.</param>
-        public void WriteFileAsync(SamplesFile pFile)
+        private void WriteFileAsync(SamplesFile pFile)
         {
-            WriteFileAsync(pFile.Header, pFile.Samples, pFile.FileName);
+            WriteFileAsync(pFile.Header, pFile.Samples, pFile.FileName).Wait();
         }
 
         /// <summary>
@@ -326,7 +438,7 @@ namespace FileHandler
         /// <param name="pHeader">File header.</param>
         /// <param name="pSamples">Signal samples which will be stored in file.</param>
         /// <param name="pFileName">File name.</param>
-        public async void WriteFileAsync(Dictionary<string, string> pHeader, List<Complex> pSamples, string pFileName)
+        private async Task WriteFileAsync(Dictionary<string, string> pHeader, IEnumerable<Complex> pSamples, string pFileName)
         {
             using (mWriter = new StreamWriter(mDirPath + pFileName))
             {
@@ -343,7 +455,6 @@ namespace FileHandler
                 {
                     await mWriter.WriteLineAsync(lSample.ToString() + cSeparator);
                 }
-
             }
         }
 
@@ -394,8 +505,12 @@ namespace FileHandler
                     }
                     finally
                     {
+#if DEBUG
+                        // do not delete sample file from hard disk at debug mode
+#elif
                         // clean up sample
-                        // lSamples.Delete();
+                        lSamples.Delete();
+#endif
                         lSampleFiles.Dequeue();
                     }
                 }
@@ -418,7 +533,7 @@ namespace FileHandler
         {
             Queue<FileInfo> lFileData = new Queue<FileInfo>();
 
-            string[] lFilePaths = Directory.GetFiles(mDirPath, cTxt);
+            string[] lFilePaths = Directory.GetFiles(mDirPath, cFileExtension);
 
             foreach (string lFileName in lFilePaths)
             {
@@ -450,11 +565,11 @@ namespace FileHandler
             Debug.WriteLine("FileHandler: Updating files to read list");
 
             // get last file modification date
-            if(pFileList.Count != 0 )
+            if (pFileList.Count != 0)
                 mLastModification = pFileList.Last().LastWriteTime;
 
             // add all files modified after given modification date
-            IEnumerable<FileInfo> lNewFiles = Directory.GetFiles(mDirPath, cTxt)
+            IEnumerable<FileInfo> lNewFiles = Directory.GetFiles(mDirPath, cFileExtension)
                                               .Select(x => new FileInfo(x))
                                               .Where(x => x.LastWriteTime > mLastModification);
 
@@ -490,12 +605,12 @@ namespace FileHandler
         /// </summary>
         public void StartScan(string pFilePattern)
         {
-            if (mScanThread.Status == TaskStatus.Running)
+            if (mScanThread.Status == TaskStatus.Running || mWriterIsBusy)
             {
                 throw new FileHandlerException("Task is already running");
             }
 
-            if ((mReadMode == ReadMode.Scan) &&
+            if ((mMode == StreamMode.Read && mReadMode == ReadMode.Scan) &&
                 (mScanThread.Status == TaskStatus.RanToCompletion || mScanThread.Status == TaskStatus.Created))
             {
                 Debug.WriteLine("FileHandler: Starting scanning for files matching pattern: " + pFilePattern);
@@ -521,6 +636,9 @@ namespace FileHandler
         /// </summary>
         public void StopScan()
         {
+            if(Mode != StreamMode.Read)
+                throw new FileHandlerException("Cannot stop scan, because FileHandler is set to write mode");
+
             if ((mReadMode == ReadMode.Scan) && (mScanThread.Status == TaskStatus.Running))
             {
                 Debug.WriteLine("FileHandler: Stopping scanning task");
@@ -551,12 +669,14 @@ namespace FileHandler
         /// <summary>
         /// This method reads data from shared memory between threads.
         /// It should be invoked when another process throws event that
-        /// shared memory is ready to read.
+        /// shared memory is ready to be read.
         /// </summary>
         /// <param name="pMemoryAddress">Address of the shared memory</param>
-        unsafe public void ReadSharedMemory(int* pMemoryAddress)
+        /// <param name="pLenght">Lenght in bytes of the files to read</param>
+        unsafe public void ReadSharedMemory(int* pMemoryAddress, int pLenght)
         {
-            // TODO future feature
+            // TODO
+            throw new NotImplementedException();
         }
 
         #endregion

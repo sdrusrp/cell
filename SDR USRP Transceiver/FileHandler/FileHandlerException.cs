@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FileHandler
+namespace UsrpIO
 {
     /// <summary>
     /// This class implements exception which is thrown when error occurs in FileHandler class object.

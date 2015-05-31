@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Runtime.Remoting.Proxies;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace FileHandler
+namespace UsrpIO.DataType
 {
     /// <summary>
-    /// 
+    /// This class represents complex number object
+    /// containing real and the imaginary part of the number
     /// </summary>
     public struct Complex
     {

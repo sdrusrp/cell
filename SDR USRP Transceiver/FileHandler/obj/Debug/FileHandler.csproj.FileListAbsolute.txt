@@ -3,3 +3,8 @@ E:\Programy\Cell\CellRepo\SDR USRP Transceiver\FileHandler\bin\Debug\FileHandler
 E:\Programy\Cell\CellRepo\SDR USRP Transceiver\FileHandler\bin\Debug\FileHandler.pdb
 E:\Programy\Cell\CellRepo\SDR USRP Transceiver\FileHandler\obj\Debug\FileHandler.dll
 E:\Programy\Cell\CellRepo\SDR USRP Transceiver\FileHandler\obj\Debug\FileHandler.pdb
+E:\Programy\Cell\cell\SDR USRP Transceiver\FileHandler\bin\Debug\FileHandler.dll
+E:\Programy\Cell\cell\SDR USRP Transceiver\FileHandler\bin\Debug\FileHandler.pdb
+E:\Programy\Cell\cell\SDR USRP Transceiver\FileHandler\obj\Debug\FileHandler.csprojResolveAssemblyReference.cache
+E:\Programy\Cell\cell\SDR USRP Transceiver\FileHandler\obj\Debug\FileHandler.dll
+E:\Programy\Cell\cell\SDR USRP Transceiver\FileHandler\obj\Debug\FileHandler.pdb
