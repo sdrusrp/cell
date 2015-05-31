@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -83,7 +84,7 @@ namespace UsrpIO
         private CancellationToken mToken;
         private DateTime mLastModification;
 
-        private const string cFileExtension = ".txt";
+        private const string cFileExtension = "*.txt";
         private const char cHeaderIndicator = '$';
         private const char cSeparator = ';';
         private const char cEqualSign = '=';
@@ -108,12 +109,16 @@ namespace UsrpIO
             // check if dir path is properly formated
             mDirPath = PathCheck(pDirPath);
 
+            string lBaseDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            mDirPath = Path.Combine(lBaseDir, mDirPath);
+
             // check if folder exists, create if not
             DirCheck(mDirPath);
 
             // key objects initialization
             Files = new List<SamplesFile>();
             mMode = pMode;
+            mReadMode = ReadMode.OnDemand;
             mTokenSource = new CancellationTokenSource();
             mToken = mTokenSource.Token;
             mScanThread = new Task(Scan, mToken);
@@ -505,10 +510,8 @@ namespace UsrpIO
                     }
                     finally
                     {
-#if DEBUG
-                        // do not delete sample file from hard disk at debug mode
-#elif
-                        // clean up sample
+#if !DEBUG
+                        // clean up read sample file from harddrive
                         lSamples.Delete();
 #endif
                         lSampleFiles.Dequeue();
@@ -616,7 +619,7 @@ namespace UsrpIO
                 Debug.WriteLine("FileHandler: Starting scanning for files matching pattern: " + pFilePattern);
 
                 mFilePattern = pFilePattern;
-                mWriterIsBusy = true;
+                mReaderIsBusy = true;
 
                 // start scanning and reading files
                 mScanThread.Start();
@@ -654,7 +657,7 @@ namespace UsrpIO
                 finally
                 {
                     mScanThread.Dispose();
-                    mWriterIsBusy = false;
+                    mReaderIsBusy = false;
 
                     Debug.WriteLine("FileHandler: Task cancelled and succesfully disposed");
                 }
