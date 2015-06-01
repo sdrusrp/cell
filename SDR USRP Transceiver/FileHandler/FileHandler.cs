@@ -36,7 +36,7 @@ namespace UsrpIO
     /// When reading, it splits read file to header part and proper content part.
     /// File header and read content is accessible for other classes.
     /// </summary>
-    public class FileHandler
+    public sealed class FileHandler
     {
         #region public fields
 
@@ -79,8 +79,8 @@ namespace UsrpIO
         private bool mWriterIsBusy;
         private bool mReaderIsBusy;
         private string mFilePattern;
-        private readonly Task mScanThread;
-        private readonly CancellationTokenSource mTokenSource;
+        private Task mScanThread;
+        private CancellationTokenSource mTokenSource;
         private CancellationToken mToken;
         private DateTime mLastModification;
 
@@ -621,8 +621,17 @@ namespace UsrpIO
                 mFilePattern = pFilePattern;
                 mReaderIsBusy = true;
 
+                // if thread was stopped create new token and scan instance
+                if (mScanThread.IsCompleted)
+                {
+                    mTokenSource = new CancellationTokenSource();
+                    mToken = mTokenSource.Token;
+                    mScanThread = new Task(Scan, mToken);
+                }
+
                 // start scanning and reading files
                 mScanThread.Start();
+
                 Thread.Sleep(10); // some startup time
 
                 Debug.WriteLine("FileHandler: Scan task has started");
@@ -642,15 +651,17 @@ namespace UsrpIO
             if(Mode != StreamMode.Read)
                 throw new FileHandlerException("Cannot stop scan, because FileHandler is set to write mode");
 
-            if ((mReadMode == ReadMode.Scan) && (mScanThread.Status == TaskStatus.Running))
+            if(mReadMode != ReadMode.Scan)
+                throw new FileHandlerException("Cannot stop scan, because FileHandler is set to read mode on demand");
+
+            if (mScanThread.Status == TaskStatus.Running)
             {
                 Debug.WriteLine("FileHandler: Stopping scanning task");
 
-                // cancel thread
-                mTokenSource.Cancel();
-
                 try
                 {
+                    // cancel thread
+                    mTokenSource.Cancel();
                     Debug.WriteLine("FileHandler: Sending cancellation request to the running task");
                     mScanThread.Wait();
                 }

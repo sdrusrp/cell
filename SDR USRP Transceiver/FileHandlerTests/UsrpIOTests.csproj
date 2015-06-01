@@ -52,6 +52,8 @@
   <ItemGroup>
     <Compile Include="ScanTest.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReadTest.cs" />
+    <Compile Include="WriteTest.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FileHandler\UsrpIO.csproj">

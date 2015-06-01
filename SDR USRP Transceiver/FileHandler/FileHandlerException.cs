@@ -9,7 +9,7 @@ namespace UsrpIO
     /// <summary>
     /// This class implements exception which is thrown when error occurs in FileHandler class object.
     /// </summary>
-    class FileHandlerException : Exception
+    public class FileHandlerException : Exception
     {
         /// <summary>
         /// Constructor of FileHandlerException.
